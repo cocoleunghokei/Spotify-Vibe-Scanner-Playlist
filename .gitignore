@@ -1,0 +1,16 @@
+node_modules/
+dist/
+uploads/
+temp/
+.env
+*.log
+.DS_Store
+*.xcuserstate
+# Xcode user-specific data
+xcuserdata/
+*.xcworkspace/xcuserdata/
+# macOS
+.DS_Store
+**/.DS_Store
+# IDE
+.cursor/
