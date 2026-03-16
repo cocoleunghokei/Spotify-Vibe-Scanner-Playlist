@@ -2,6 +2,10 @@
 
 Generate Spotify playlists from your location, photos, and videos. Capture the moment on a road trip, and the app matches the vibe to music.
 
+## Demo
+
+https://github.com/user-attachments/assets/52a13d45-53e8-4d12-b86f-e3edc78bebf2
+
 ## Architecture
 
 - **iOS App**: Camera capture, location, Spotify OAuth, upload media, trigger playlist generation
