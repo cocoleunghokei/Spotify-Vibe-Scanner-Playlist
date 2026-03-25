@@ -3,7 +3,6 @@
 # Spotify Vibe Scanner Playlist
 
 Generate Spotify playlists from your location, photos, and videos. Capture the moment on a road trip, and the app matches the vibe to music.
-Disclaimer: This app is vibe-coded
 
 ## Demo
 
