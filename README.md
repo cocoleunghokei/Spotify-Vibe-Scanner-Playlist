@@ -43,6 +43,8 @@ npm run dev
 
 **LLM options**: Use LiteLLM Proxy (`LITELLM_PROXY_URL` + `LITELLM_PROXY_API_KEY`) for gemini-2.5-pro, or fall back to `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikey). Proxy requires VPN for external access.
 
+**DeepSeek**: Set `DEEPSEEK_API_KEY` (from [platform.deepseek.com](https://platform.deepseek.com/api_keys)) to use DeepSeek for the text steps (vibe analysis, genre mapping). DeepSeek can't read images, so with DeepSeek alone the playlist is built from location + video audio. Add `GEMINI_API_KEY` too if you want photo content analyzed. Optional: `DEEPSEEK_MODEL` (default `deepseek-chat`).
+
 Backend runs at `http://localhost:3000`.
 
 ### 3. iOS App

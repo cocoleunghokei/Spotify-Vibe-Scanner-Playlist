@@ -10,9 +10,14 @@ const PROXY_KEY = process.env.LITELLM_PROXY_API_KEY;
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 // Set to "true" to bypass proxy and use direct Gemini (when proxy returns 404, etc.)
 const USE_DIRECT_GEMINI = process.env.USE_DIRECT_GEMINI === 'true' || process.env.USE_DIRECT_GEMINI === '1';
+// DeepSeek (OpenAI-compatible, text only - no image input). Used for text calls when set.
+const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
+const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL?.replace(/\/$/, '') || 'https://api.deepseek.com';
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 
 let _openai: OpenAI | null = null;
 let _gemini: GoogleGenAI | null = null;
+let _deepseek: OpenAI | null = null;
 
 function getOpenAIClient(): OpenAI {
   if (!_openai) {
@@ -30,12 +35,29 @@ function getGeminiClient(): GoogleGenAI {
   return _gemini;
 }
 
+function getDeepSeekClient(): OpenAI {
+  if (!_deepseek) {
+    if (!DEEPSEEK_KEY) throw new Error('DEEPSEEK_API_KEY required');
+    _deepseek = new OpenAI({ baseURL: DEEPSEEK_BASE_URL, apiKey: DEEPSEEK_KEY });
+  }
+  return _deepseek;
+}
+
+export function isDeepSeekConfigured(): boolean {
+  return !!DEEPSEEK_KEY;
+}
+
+/** Image analysis needs Gemini (direct or via proxy); DeepSeek has no vision input. */
+export function isVisionConfigured(): boolean {
+  return isProxyConfigured() || !!GEMINI_KEY;
+}
+
 export function isProxyConfigured(): boolean {
   return !!(PROXY_URL && PROXY_KEY) && !USE_DIRECT_GEMINI;
 }
 
 export function isLlmConfigured(): boolean {
-  return isProxyConfigured() || !!GEMINI_KEY;
+  return isProxyConfigured() || !!GEMINI_KEY || isDeepSeekConfigured();
 }
 
 export function getLlmMode(): 'proxy' | 'direct' {
@@ -44,6 +66,10 @@ export function getLlmMode(): 'proxy' | 'direct' {
 }
 
 const PROXY_MODEL = 'gemini/gemini-2.5-flash';
+
+export function getDeepSeekModelName(): string {
+  return DEEPSEEK_MODEL;
+}
 
 export function getModelName(): string {
   return isProxyConfigured() ? PROXY_MODEL : 'gemini-2.0-flash';
@@ -106,6 +132,9 @@ export async function chatWithImages(
 ): Promise<string> {
   const maxTokens = options?.maxTokens ?? 500;
   const temperature = options?.temperature ?? 0.8;
+
+  // No vision-capable backend (e.g. DeepSeek only): callers fall back to text-only vibe analysis
+  if (!isVisionConfigured()) return '';
 
   const doCall = async (): Promise<string> => {
     // #region agent log
@@ -202,6 +231,28 @@ export async function chatText(
   // #region agent log
   fetch('http://127.0.0.1:7536/ingest/69e8a2c0-63e2-4285-bb8c-a6b53689f553',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2bd3e8'},body:JSON.stringify({sessionId:'2bd3e8',location:'llmClient.ts:chatText-entry',message:'chatText entry',data:{isProxy:isProxyConfigured(),proxyModel:PROXY_MODEL,maxTokens},timestamp:Date.now(),hypothesisId:'H1,H3'})}).catch(()=>{});
   // #endregion
+  if (isDeepSeekConfigured()) {
+    try {
+      const response = await getDeepSeekClient().chat.completions.create({
+        model: DEEPSEEK_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        max_tokens: maxTokens,
+        temperature,
+        ...(options?.responseMimeType === 'application/json' && {
+          response_format: { type: 'json_object' as const },
+        }),
+      });
+      const deepseekOut = response.choices[0]?.message?.content?.trim() ?? '';
+      if (deepseekOut || !isVisionConfigured()) return deepseekOut;
+    } catch (e) {
+      if (!isVisionConfigured()) throw e;
+      console.warn('[LLM] DeepSeek call failed, falling back to Gemini:', String(e).slice(0, 200));
+    }
+  }
+
   if (isProxyConfigured()) {
     const client = getOpenAIClient();
     const response = await client.chat.completions.create({

@@ -2,7 +2,14 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
-import { getLlmMode, getModelName, isLlmConfigured } from './services/llmClient';
+import {
+  getDeepSeekModelName,
+  getLlmMode,
+  getModelName,
+  isDeepSeekConfigured,
+  isLlmConfigured,
+  isVisionConfigured,
+} from './services/llmClient';
 import cors from 'cors';
 import { spotifyRouter } from './routes/spotify';
 import { uploadRouter } from './routes/upload';
@@ -48,9 +55,17 @@ app.use((req, res) => {
 if (!isLlmConfigured()) {
   console.warn('\n⚠️  No LLM configured. Playlist generation will fail.');
   console.warn('   Option 1: Set LITELLM_PROXY_URL and LITELLM_PROXY_API_KEY');
-  console.warn('   Option 2: Set GEMINI_API_KEY (https://aistudio.google.com/apikey)\n');
+  console.warn('   Option 2: Set GEMINI_API_KEY (https://aistudio.google.com/apikey)');
+  console.warn('   Option 3: Set DEEPSEEK_API_KEY (https://platform.deepseek.com/api_keys)\n');
 } else {
-  console.log(`[LLM] Using ${getLlmMode() === 'proxy' ? 'LiteLLM Proxy' : 'direct Gemini'}: ${getModelName()}`);
+  if (isDeepSeekConfigured()) {
+    console.log(`[LLM] Text: DeepSeek ${getDeepSeekModelName()}`);
+  }
+  if (isVisionConfigured()) {
+    console.log(`[LLM] ${isDeepSeekConfigured() ? 'Photos' : 'Using'} ${getLlmMode() === 'proxy' ? 'LiteLLM Proxy' : 'direct Gemini'}: ${getModelName()}`);
+  } else {
+    console.log('[LLM] Photos: no vision model (DeepSeek is text-only) - add GEMINI_API_KEY to analyze photo content');
+  }
 }
 
 const HOST = '0.0.0.0';
